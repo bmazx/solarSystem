@@ -629,7 +629,8 @@ int main(int argv, char** argc)
 
 			if (ImGui::Button("Make the mass of pluto the sun"))
 			{
-				planets[9].mass = 1.9891e+30;
+				if (!planets.empty())
+					planets.back().mass = 1.9891e+30;
 			}
 			if (ImGui::Button("Make all the planets have the mass of the sun"))
 			{
