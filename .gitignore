@@ -35,4 +35,4 @@
 build/
 compile_commands.json
 *.ini
-
+*.cache

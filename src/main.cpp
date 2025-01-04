@@ -1,6 +1,3 @@
-#include <ctime>
-#include <string>
-#include <unistd.h>
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 #include <glad/glad.h>
@@ -14,6 +11,8 @@
 #include <cstdint>
 #include <vector>
 #include <chrono>
+#include <ctime>
+#include <string>
 
 #include <imgui/imgui.h>
 #include <imgui/imgui_impl_glfw.h>
@@ -168,6 +167,9 @@ void drawPoly(BatchGroup* batch, OglsVec2 pos, OglsVec3 color, float radius, uin
 {
 	batch->vertices.clear();
 	batch->indices.clear();
+
+	batch->vertices.reserve(nSides + 1);
+	batch->indices.reserve(nSides * 3 + 1);
 
 	batch->vertices.push_back({ pos, color });
 
@@ -378,7 +380,6 @@ int main(int argv, char** argc)
 	batch.vertexBuffer = vertexBuffer;
 	batch.indexBuffer = indexBuffer;
 	batch.vertexArray = vertexArray;
-	
 
 	// solar system code
 
@@ -427,7 +428,9 @@ int main(int argv, char** argc)
 	bool pause = false;
 	std::string pauseName = "pause";
 
-	auto timer = std::chrono::high_resolution_clock::now();
+	Timer timer;
+	timer.start();
+
 	float oldTime = 0.0f;
 	Timer deltaTime;
 	deltaTime.start();
@@ -648,7 +651,7 @@ int main(int argv, char** argc)
 
 
 			ImGui::NewLine();
-			ImGui::Text("Time elapsed: %f", std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - timer).count() * 0.001f * 0.001f * 0.001f);
+			ImGui::Text("Time elapsed: %f", timer.elapsed());
 
 			ImGui::End();
 		}
