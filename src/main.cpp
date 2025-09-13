@@ -21,6 +21,8 @@
 #include "ogls.h"
 
 
+// [SECTION]
+
 #define COLOR_FG 1.0, 1.0, 1.0
 #define COLOR_BG 0.0, 0.0, 0.0
 
@@ -51,11 +53,15 @@ class Timer
 {
 private:
     std::chrono::time_point<std::chrono::high_resolution_clock> m_Time;
+    float m_Timef;
+    bool m_Pause;
 
 public:
     void start() { m_Time = std::chrono::high_resolution_clock::now(); }
-    void reset() { m_Time = std::chrono::high_resolution_clock::now(); }
-    float elapsed() { return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - m_Time).count() * 0.001f * 0.001f * 0.001f; }
+    void reset() { m_Timef = 0.0f; m_Time = std::chrono::high_resolution_clock::now(); }
+    void pause() { if (m_Pause) return; m_Pause = true; m_Timef += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - m_Time).count() * 0.001f * 0.001f * 0.001f; }
+    void play()  { if (!m_Pause) return; m_Pause = false; start(); }
+    float elapsed() { if (m_Pause) { return m_Timef; } pause(); play(); return m_Timef; }
     float elapsedms() { return elapsed() * 1000.0f; }
 };
 
@@ -291,10 +297,12 @@ OglsVec2 getPlanetAttraction(const Planet& p1, const Planet& p2)
     float distx = p1.pos.x - p2.pos.x;
     float disty = p1.pos.y - p2.pos.y;
 
+    // get the gravitational force using the grav. force formula
     float distance = std::sqrt(std::pow(distx, 2) + std::pow(disty, 2));
     float force = G_CONSTANT * p1.mass * p2.mass / std::pow(distance, 2);
-    float theta = std::atan2(disty, distx);
 
+    // apply the force for the x and y forces
+    float theta = std::atan2(disty, distx);
     float fx = force * std::cos(theta);
     float fy = force * std::sin(theta);
 
@@ -337,9 +345,9 @@ int main(int argv, char** argc)
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-    //
-    ImGuiStyle* style = &ImGui::GetStyle();
-    style->FontScaleDpi = 2.0f;
+
+    // ImGuiStyle* style = &ImGui::GetStyle();
+    // style->FontScaleDpi = 2.0f;
 
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 330 core");
@@ -386,7 +394,9 @@ int main(int argv, char** argc)
 
     // solar system code
 
+    // [SECTION]
     // planet initialization
+    // mass, distance, radius, position, vellocity, color, bool sun
     Planet sun;
     initPlanet(&sun, 1.9891e+30, 0.0f, 35.0f, {0.0f, 0.0f}, {0.0f, 0.0f}, { SUN_COLOR }, true);
 
@@ -434,6 +444,10 @@ int main(int argv, char** argc)
     Timer timer;
     timer.start();
 
+    Timer fpsTimer;
+    fpsTimer.start();
+    int fps = 0, fpsOut = 0;
+
     float oldTime = 0.0f;
     Timer deltaTime;
     deltaTime.start();
@@ -470,6 +484,7 @@ int main(int argv, char** argc)
         ogls::bindShader(shader);
         glUniformMatrix4fv(glGetUniformLocation(ogls::getShaderId(shader), "u_Camera"), 1, GL_FALSE, glm::value_ptr(camera));
 
+        // [SECTION]
         // calculate planet positions and forces
         if (!pause)
         {
@@ -478,14 +493,17 @@ int main(int argv, char** argc)
                 auto& planet = planets[i];
                 OglsVec2 sumOfForces = {0.0f, 0.0f};
 
+                // calculate planet pos and velocity based on forces on all other planet masses
                 for (int j = 0; j < planets.size(); j++)
                 {
                     if (i == j) continue;
                     if (planets[j].sun)
                     {
+                        // get distance of planet from sun
                         planet.distance = std::sqrt(std::pow(planet.pos.x - planets[j].pos.x, 2) + std::pow(planet.pos.y - planets[j].pos.y, 2));
                     }
 
+                    // calculate planet forces of attraction
                     OglsVec2 f = getPlanetAttraction(planet, planets[j]);
                     sumOfForces.x += f.x;
                     sumOfForces.y += f.y;
@@ -520,7 +538,7 @@ int main(int argv, char** argc)
                 p_open = true;
             else
                 p_open = false;
-            
+
             pressOnce = true;
         }
         else if (key == GLFW_RELEASE)
@@ -589,11 +607,13 @@ int main(int argv, char** argc)
                 {
                     pause = false;
                     pauseName = "Pause";
+                    timer.play();
                 }
                 else
                 {
                     pause = true;
                     pauseName = "Play";
+                    timer.pause();
                 }
             }
             if (ImGui::Button("Restart"))
@@ -602,6 +622,7 @@ int main(int argv, char** argc)
                 camx = camy = 0.0f;
                 scale = 1.0f;
                 timeStep = 86400;
+                timer.reset();
             }
 
             ImGui::NewLine();
@@ -652,8 +673,16 @@ int main(int argv, char** argc)
                 }
             }
 
+            fps++;
+            if (fpsTimer.elapsed() >= 1.0f)
+            {
+                fpsTimer.reset();
+                fpsOut = fps;
+                fps = 0;
+            }
 
             ImGui::NewLine();
+            ImGui::Text("FPS: %d", fpsOut);
             ImGui::Text("Time elapsed: %f", timer.elapsed());
 
             ImGui::End();
